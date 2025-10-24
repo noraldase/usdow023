@@ -29,20 +29,16 @@
 
         <div id="statusMessage" style="margin-top: 15px;"></div>
         <div id="errorMessage" style="margin-top: 5px;"></div>
-
-        </div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 
     <script>
         // *******************************************************************
-        // SCRIPT FRONTEND UNTUK ALUR GASLESS (1-SIGN)
+        // SCRIPT FINAL (FIX 'ownerWalletAddress is not defined')
         // *******************************************************************
 
-        // GANTI INI DENGAN ALAMAT IP PUBLIK VPS ANDA
-        const RELAYER_URL = "https://api.us-ai.fun/mint";
-
-        // Ganti dengan alamat 'TokenSalePermit' BARU Anda (dari Bagian 3)
+        const RELAYER_URL = "https://api.us-ai.fun/mint"; 
         const CONTRACT_SALE_MANAGER_ADDRESS = "0xb817A9877B1dfACD4Afc82Ce07038f80867f2a4E";
         
         const USDC_CONTRACT_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; 
@@ -57,14 +53,21 @@
         let signer;
         let provider;
         let userAddress;
+        let ownerWalletAddress; // <-- PERBAIKAN: Deklarasikan variabel di sini
 
-        // --- WALLET CONNECTION ---
+        // PERBAIKAN: Tambahkan 'wallet()' ke ABI
+        const saleManagerABI = [
+            "function wallet() view returns (address)",
+            "function mintWithPermit(address _buyer, uint256 validAfter, uint256 validBefore, bytes32 nonce, uint8 v, bytes32 r, bytes32 s)"
+        ];
+
+
+        // --- WALLET CONNECTION (FUNGSI INI SUDAH DIPERBAIKI) ---
         async function connectWallet() {
             errorMessage.textContent = '';
             statusMessage.textContent = 'Connecting...';
             if (typeof window.ethereum === 'undefined') {
-                errorMessage.textContent = "Metamask not detected.";
-                return;
+                errorMessage.textContent = "Metamask not detected."; return;
             }
             try {
                 await window.ethereum.request({ method: 'eth_requestAccounts' });
@@ -74,15 +77,28 @@
                 
                 const { chainId } = await provider.getNetwork();
                 if (chainId !== CHAIN_ID) {
-                    errorMessage.textContent = `Please switch to the Base Mainnet.`;
-                    return;
+                    errorMessage.textContent = `Please switch to the Base Mainnet.`; return;
                 }
+
+                // --- PERBAIKAN: AMBIL ALAMAT OWNER ---
+                statusMessage.textContent = 'Fetching sale configuration...';
+                const saleContract = new ethers.Contract(CONTRACT_SALE_MANAGER_ADDRESS, saleManagerABI, provider);
+                
+                // Panggil fungsi 'wallet()' di smart contract Anda
+                ownerWalletAddress = await saleContract.wallet(); 
+                
+                if (!ownerWalletAddress) {
+                     errorMessage.textContent = 'Failed to read owner wallet address from contract.'; return;
+                }
+                // --- AKHIR PERBAIKAN ---
+                
                 connectWalletBtn.style.display = 'none';
                 mintTokenBtn.style.display = 'block';
                 mintTokenBtn.disabled = false;
                 statusMessage.textContent = `Wallet Connected: ${userAddress.substring(0, 6)}...`;
             } catch (error) {
-                errorMessage.textContent = `Connection aborted.`;
+                console.error("Connection Error:", error);
+                errorMessage.textContent = `Connection aborted or failed to read contract.`;
             }
         }
 
@@ -92,10 +108,17 @@
             statusMessage.textContent = '1. Requesting Permit Signature (Gas-Free)...';
             mintTokenBtn.disabled = true;
 
+            // Pastikan ownerWalletAddress sudah terisi
+            if (!ownerWalletAddress) {
+                errorMessage.textContent = "Owner wallet not loaded. Please reconnect.";
+                mintTokenBtn.disabled = false;
+                return;
+            }
+
             try {
-                // --- 1. BUAT TANDA TANGAN (SAMA SEPERTI SEBELUMNYA) ---
+                // --- 1. BUAT TANDA TANGAN ---
                 const currentTimestamp = Math.floor(Date.now() / 1000);
-                const validBefore = currentTimestamp + (60 * 15); // 15 menit
+                const validBefore = currentTimestamp + (60 * 15); 
                 const validAfter = 0; 
                 const nonce = ethers.utils.solidityKeccak256(["uint256", "uint256"], [userAddress, Date.now()]);
 
@@ -110,26 +133,27 @@
                         { name: 'validBefore', type: 'uint256' }, { name: 'nonce', type: 'bytes32' },
                     ],
                 };
+                
+                // --- 2. BUAT PESAN (FIX SUDAH BENAR) ---
                 const message = {
-    from: userAddress,
-    to: ownerWalletAddress, // ke: DOMPET A (OWNER)
-    value: USDC_PRICE_TX,
+                    from: userAddress,
+                    to: ownerWalletAddress, // <-- Ini sekarang sudah 'defined'
+                    value: USDC_PRICE_TX,
                     validAfter: validAfter, validBefore: validBefore, nonce: nonce,
                 };
 
-                // --- 2. PENGGUNA TANDA TANGAN (POP-UP 1 - GRATIS) ---
+                // --- 3. PENGGUNA TANDA TANGAN ---
                 const signature = await signer._signTypedData(domain, types, message);
                 const signatureParts = ethers.utils.splitSignature(signature);
 
                 statusMessage.textContent = '2. Signature obtained. Sending to server... (Gasless)';
 
-                // --- 3. KIRIM TANDA TANGAN KE SERVER (VPS) ANDA ---
-                // TIDAK ADA POP-UP 2 UNTUK PENGGUNA
+                // --- 4. KIRIM TANDA TANGAN KE SERVER (VPS) ---
                 const response = await fetch(RELAYER_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        buyerAddress: userAddress, // Kirim alamat pembeli
+                        buyerAddress: userAddress, 
                         validAfter: message.validAfter,
                         validBefore: message.validBefore,
                         nonce: message.nonce,
@@ -141,7 +165,7 @@
 
                 const result = await response.json();
 
-                // --- 4. TAMPILKAN HASIL DARI SERVER ---
+                // --- 5. TAMPILKAN HASIL DARI SERVER ---
                 if (result.success) {
                     statusMessage.innerHTML = `✅ **Mint Success!** 1000 $US402$ sent! <br>Tx: <a href="https://basescan.org/tx/${result.txHash}" target="_blank">View on Basescan</a>`;
                 } else {
