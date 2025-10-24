@@ -3,13 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>$US402 Token Launch</title>
+    <title>$PONGUS Token Launch</title>
     <style>
         body { font-family: monospace, Courier New; margin: 40px; color: #333; }
         .container { max-width: 800px; margin: auto; padding: 0; }
         h1 { color: #ff6600; font-size: 2.2em; padding-bottom: 5px; margin-bottom: 15px; }
         h2 { color: #333; font-size: 1.2em; margin-top: 25px; margin-bottom: 10px; }
         ul { list-style-type: none; padding-left: 0; margin-left: 0; }
+        /* Style khusus untuk list tokenomics */
+        ul.tokenomics li { margin-bottom: 5px; }
         a { color: #007bff; text-decoration: none; }
         #connectWalletBtn, #mintTokenBtn { padding: 10px 20px; font-size: 16px; border: none; cursor: pointer; border-radius: 5px; transition: background-color 0.3s; font-family: monospace; }
         #connectWalletBtn { background-color: #ff6600; color: white; }
@@ -17,31 +19,62 @@
         #mintTokenBtn:disabled { background-color: #ccc; cursor: not-allowed; }
         #errorMessage { color: red; font-weight: bold; }
         #statusMessage { color: green; }
+        #gasDisplay { margin-top: 10px; font-size: 0.9em; color: #555; }
+        .warning { margin-top: 20px; padding: 10px; border: 1px solid #ffcc00; background-color: #fff9e6; border-radius: 5px; font-size: 0.9em;}
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>$US402</h1>
-        <p>Price: 1000 $US402 per 1 USDC. **1x Sign-In** for efficient transaction.</p>
-        
-        <button id="connectWalletBtn">Connect Wallet</button>
-        <button id="mintTokenBtn" style="display: none;" disabled>Mint 1000 $US402 (1 USDC)</button>
+        <h1>$PONGUS</h1>
+        <p>The inaugural native web payment framework designed to reward X402 adoption with yield tokens. X402: what is it?</p>
 
+        <h2>Domain</h2>
+        <p>us-ai.fun</p>
+
+        <h2>Mint Token</h2>
+        <p>Price: 1000 $PONGUS per 1 USDC. **1x Sign-In** for efficient transaction.</p>
+
+        <button id="connectWalletBtn">Connect Wallet</button>
+        <button id="mintTokenBtn" style="display: none;" disabled>Mint 1000 $PONGUS (1 USDC)</button>
+
+        <div id="gasDisplay"></div>
         <div id="statusMessage" style="margin-top: 15px;"></div>
         <div id="errorMessage" style="margin-top: 5px;"></div>
+
+        <hr style="margin-top: 30px; margin-bottom: 30px; border: 0; border-top: 1px solid #eee;">
+
+        <h2>Tokenomics</h2>
+        <ul class="tokenomics">
+            <li><strong>Mint Amount:</strong> 1000 $PONGUS per transaction</li>
+            <li><strong>Price:</strong> 1 USDC</li>
+            <li><strong>Cap:</strong> 100K $USDC total</li>
+            <li><strong>LP:</strong> 100% of proceeds go into LP</li>
+            <li><strong>Team Supply:</strong> No team supply</li>
+            <li><strong>Utility:</strong> None - pure meme token</li>
+            <li><strong>Refunds:</strong> No refunds</li>
+            <li><strong>Liquidity:</strong> Only provided on mint out</li>
+        </ul>
+        <hr style="margin-top: 30px; margin-bottom: 30px; border: 0; border-top: 1px solid #eee;">
+
+        <h2>Social</h2>
+        <p>Follow <a href="https://x.com/us402fun" target="_blank" rel="noopener noreferrer">@us402fun</a> on X</p>
+
+        <div class="warning">
+            ⚠️ Warning: Use at your own risk. NO financial advice.
+        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 
     <script>
         // *******************************************************************
-        // SCRIPT FINAL (FIX 'ownerWalletAddress is not defined')
+        // SCRIPT FRONTEND UNTUK ALUR GASLESS (1-SIGN) DENGAN DETEKSI GAS
         // *******************************************************************
 
-        const RELAYER_URL = "https://api.us-ai.fun/mint"; 
-        const CONTRACT_SALE_MANAGER_ADDRESS = "0xb817A9877B1dfACD4Afc82Ce07038f80867f2a4E";
-        
-        const USDC_CONTRACT_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; 
+        const RELAYER_URL = "https://api.us-ai.fun/mint";
+        const CONTRACT_SALE_MANAGER_ADDRESS = "0xb817A9877B1dfACD4Afc82Ce07038f80867f2a4E"; // Alamat kontrak Anda
+
+        const USDC_CONTRACT_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
         const CHAIN_ID = 8453; // Base Mainnet
         const USDC_PRICE_TX = '1000000'; // 1 USDC
 
@@ -49,23 +82,26 @@
         const mintTokenBtn = document.getElementById('mintTokenBtn');
         const statusMessage = document.getElementById('statusMessage');
         const errorMessage = document.getElementById('errorMessage');
+        const gasDisplay = document.getElementById('gasDisplay');
 
         let signer;
         let provider;
         let userAddress;
-        let ownerWalletAddress; // <-- PERBAIKAN: Deklarasikan variabel di sini
+        let ownerWalletAddress;
 
-        // PERBAIKAN: Tambahkan 'wallet()' ke ABI
+        // ABI Lengkap untuk connectWallet dan mintToken
         const saleManagerABI = [
             "function wallet() view returns (address)",
             "function mintWithPermit(address _buyer, uint256 validAfter, uint256 validBefore, bytes32 nonce, uint8 v, bytes32 r, bytes32 s)"
+            // Anda bisa menambahkan ABI lain jika perlu, tapi ini cukup untuk fungsi yang ada
         ];
 
-
-        // --- WALLET CONNECTION (FUNGSI INI SUDAH DIPERBAIKI) ---
+        // --- WALLET CONNECTION (DENGAN DETEKSI GAS & AMBIL OWNER WALLET) ---
         async function connectWallet() {
             errorMessage.textContent = '';
             statusMessage.textContent = 'Connecting...';
+            gasDisplay.textContent = 'Fetching gas price...';
+
             if (typeof window.ethereum === 'undefined') {
                 errorMessage.textContent = "Metamask not detected."; return;
             }
@@ -74,24 +110,30 @@
                 provider = new ethers.providers.Web3Provider(window.ethereum);
                 signer = provider.getSigner();
                 userAddress = await signer.getAddress();
-                
+
                 const { chainId } = await provider.getNetwork();
                 if (chainId !== CHAIN_ID) {
                     errorMessage.textContent = `Please switch to the Base Mainnet.`; return;
                 }
 
-                // --- PERBAIKAN: AMBIL ALAMAT OWNER ---
+                // Deteksi Harga Gas
+                try {
+                    const feeData = await provider.getFeeData();
+                    const gasPriceInGwei = feeData.gasPrice.div(1000000000);
+                    gasDisplay.textContent = `⚡ Current Network Gas: ${gasPriceInGwei.toString()} Gwei`;
+                } catch (gasError) {
+                    gasDisplay.textContent = 'Could not fetch gas price.';
+                }
+
+                // Ambil alamat wallet owner
                 statusMessage.textContent = 'Fetching sale configuration...';
                 const saleContract = new ethers.Contract(CONTRACT_SALE_MANAGER_ADDRESS, saleManagerABI, provider);
-                
-                // Panggil fungsi 'wallet()' di smart contract Anda
-                ownerWalletAddress = await saleContract.wallet(); 
-                
+                ownerWalletAddress = await saleContract.wallet();
+
                 if (!ownerWalletAddress) {
                      errorMessage.textContent = 'Failed to read owner wallet address from contract.'; return;
                 }
-                // --- AKHIR PERBAIKAN ---
-                
+
                 connectWalletBtn.style.display = 'none';
                 mintTokenBtn.style.display = 'block';
                 mintTokenBtn.disabled = false;
@@ -108,7 +150,6 @@
             statusMessage.textContent = '1. Requesting Permit Signature (Gas-Free)...';
             mintTokenBtn.disabled = true;
 
-            // Pastikan ownerWalletAddress sudah terisi
             if (!ownerWalletAddress) {
                 errorMessage.textContent = "Owner wallet not loaded. Please reconnect.";
                 mintTokenBtn.disabled = false;
@@ -116,10 +157,10 @@
             }
 
             try {
-                // --- 1. BUAT TANDA TANGAN ---
+                // Buat Tanda Tangan
                 const currentTimestamp = Math.floor(Date.now() / 1000);
-                const validBefore = currentTimestamp + (60 * 15); 
-                const validAfter = 0; 
+                const validBefore = currentTimestamp + (60 * 15);
+                const validAfter = 0;
                 const nonce = ethers.utils.solidityKeccak256(["uint256", "uint256"], [userAddress, Date.now()]);
 
                 const domain = {
@@ -133,27 +174,25 @@
                         { name: 'validBefore', type: 'uint256' }, { name: 'nonce', type: 'bytes32' },
                     ],
                 };
-                
-                // --- 2. BUAT PESAN (FIX SUDAH BENAR) ---
                 const message = {
                     from: userAddress,
-                    to: ownerWalletAddress, // <-- Ini sekarang sudah 'defined'
+                    to: ownerWalletAddress, // Menggunakan alamat owner yang sudah diambil
                     value: USDC_PRICE_TX,
                     validAfter: validAfter, validBefore: validBefore, nonce: nonce,
                 };
 
-                // --- 3. PENGGUNA TANDA TANGAN ---
+                // Pengguna Tanda Tangan
                 const signature = await signer._signTypedData(domain, types, message);
                 const signatureParts = ethers.utils.splitSignature(signature);
 
                 statusMessage.textContent = '2. Signature obtained. Sending to server... (Gasless)';
 
-                // --- 4. KIRIM TANDA TANGAN KE SERVER (VPS) ---
+                // Kirim ke Server (VPS)
                 const response = await fetch(RELAYER_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        buyerAddress: userAddress, 
+                        buyerAddress: userAddress,
                         validAfter: message.validAfter,
                         validBefore: message.validBefore,
                         nonce: message.nonce,
@@ -165,15 +204,15 @@
 
                 const result = await response.json();
 
-                // --- 5. TAMPILKAN HASIL DARI SERVER ---
+                // Tampilkan Hasil
                 if (result.success) {
-                    statusMessage.innerHTML = `✅ **Mint Success!** 1000 $US402$ sent! <br>Tx: <a href="https://basescan.org/tx/${result.txHash}" target="_blank">View on Basescan</a>`;
+                    statusMessage.innerHTML = `✅ **Mint Success!** 1000 $PONGUS sent! <br>Tx: <a href="https://basescan.org/tx/${result.txHash}" target="_blank">View on Basescan</a>`;
                 } else {
                     errorMessage.textContent = `Mint Failed: ${result.error}`;
                 }
-                
+
             } catch (error) {
-                if (error.code === 4001) { 
+                if (error.code === 4001) {
                     errorMessage.textContent = 'Transaction signature denied by the user.';
                 } else {
                     errorMessage.textContent = 'Signature Failed. Check console (F12).';
