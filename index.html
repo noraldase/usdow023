@@ -155,11 +155,8 @@
                 const validBefore = currentTimestamp + (60 * 15); // 15 menit
                 const validAfter = 0; // Valid segera
 
-                // Nonce unik (Untuk menghindari error 'execution reverted' / nonce used)
-                const nonce = ethers.utils.solidityKeccak256(
-                    ["uint256", "address", "uint256"], 
-                    [Date.now(), userAddress, Math.floor(Math.random() * 1000000)]
-                );
+// Misal, gunakan hash dari waktu saat ini + string unik baru
+const nonce = ethers.utils.solidityKeccak256(["string", "uint256"], ["UNIQUE_ID_2025_09_28_NEW", Date.now()]);
 
                 // EIP-712 Domain Data
                 const domain = {
