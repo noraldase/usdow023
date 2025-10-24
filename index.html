@@ -3,43 +3,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>$US420 Token Launch</title>
+    <title>$US402 Token Launch</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            /* Menghapus background-color untuk membuatnya transparan/putih datar */
+            font-family: monospace, Courier New; /* Menggunakan font yang lebih teknis/sederhana */
             margin: 40px;
-            background-color: #f4f4f4;
             color: #333;
         }
         .container {
+            /* Menghapus semua styling latar belakang dan bayangan */
             max-width: 800px;
             margin: auto;
-            background: #fff;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-        }
-        h1 {
-            color: #ff6600; /* Warna Orange untuk mencolokkan */
-            font-size: 2.5em;
-            border-bottom: 2px solid #ccc;
-            padding-bottom: 10px;
-            margin-bottom: 20px;
-        }
-        h2 {
-            color: #555;
-            margin-top: 25px;
-            border-bottom: 1px dashed #eee;
-            padding-bottom: 5px;
-        }
-        ul {
-            list-style-type: disc;
-            margin-left: 20px;
             padding: 0;
         }
-        li {
-            margin-bottom: 8px;
-            line-height: 1.5;
+        h1 {
+            color: #ff6600; 
+            font-size: 2.2em;
+            padding-bottom: 5px;
+            margin-bottom: 15px;
+        }
+        h2 {
+            color: #333;
+            font-size: 1.2em;
+            margin-top: 25px;
+            margin-bottom: 10px;
+        }
+        p {
+            margin-top: 5px;
+        }
+        ul {
+            list-style-type: none; /* Menghilangkan bullet point standar */
+            padding-left: 0;
+            margin-left: 0;
+        }
+        ul.endpoints li {
+            margin-bottom: 5px;
+            text-indent: -10px; /* Membuat list item terlihat seperti bullet point/hyphen */
+        }
+        ul.endpoints li::before {
+            content: "• "; /* Mengganti bullet point dengan karakter */
+            color: #007bff;
+            font-weight: bold;
+        }
+        ul.tokenomics li {
+            margin-bottom: 5px;
+            line-height: 1.4;
         }
         a {
             color: #007bff;
@@ -50,33 +59,30 @@
         }
         .warning {
             margin-top: 30px;
-            padding: 15px;
-            background-color: #fff3cd;
-            border: 1px solid #ffe0a3;
-            color: #856404;
-            border-radius: 4px;
+            padding: 10px 0;
+            color: #cc0000;
+            font-weight: bold;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>$US420</h1>
+        <h1>$US402</h1>
 
-        <p>Protokol pembayaran internet-native pertama yang memberi *reward* penggunaan x402 dengan *yield token*. Apa itu x402??</p>
+        <p>The inaugural native web payment framework designed to reward X402 adoption with yield tokens. X402: what is it?</p>
 
         <h2>Domain</h2>
-        <p>pong.wtf</p>
+        <p>us-ai.fun</p>
 
         <h2>Endpoints</h2>
-        <ul>
+        <ul class="endpoints">
             <li><a href="/accepts">/accepts</a> - x402 discovery endpoint</li>
-            <li><a href="/mint">/mint</a> - Mint 1k $US420 tokens ($1 USDC) - Alias for mint</li>
-            <li><a href="/testing">/testing</a> - Mint 1k $US420 tokens ($1 USDC) - Test endpoint</li>
+            <li><a href="/mint">/mint</a> - Mint 1k $US402 tokens ($1 USDC) - Alias for mint</li>
         </ul>
 
         <h2>Tokenomics</h2>
-        <ul>
-            <li>**Mint Amount:** 1000 $US420 per transaction</li>
+        <ul class="tokenomics">
+            <li>**Mint Amount:** 1000 $US402 per transaction</li>
             <li>**Price:** 1 USDC</li>
             <li>**Cap:** 100K $USDC total</li>
             <li>**LP:** 100% of proceeds go into LP</li>
