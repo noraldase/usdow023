@@ -134,7 +134,7 @@
         // *******************************************************************
         // !!! ALAMAT KONTRAK FINAL YANG SUDAH DI-DEPLOY DI BASE MAINNET !!!
         // *******************************************************************
-        const CONTRACT_SALE_MANAGER_ADDRESS = "0xbd44118436691de975e78908b3d7b3422ca69f53"; 
+        const CONTRACT_SALE_MANAGER_ADDRESS = "0xBd44118436691De975E78908B3d7b3422cA69F53"; 
         
         // Base Network Configuration
         const USDC_CONTRACT_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; 
@@ -187,23 +187,22 @@
         }
 
         // --- MINT FUNCTION (DENGAN PERBAIKAN WAKTU & NONCE) ---
-        async function mintToken() {
-            errorMessage.textContent = '';
-            statusMessage.textContent = '1. Requesting Permit Signature (Gas-Free)...';
-            mintTokenBtn.disabled = true;
+       async function mintToken() {
+    errorMessage.textContent = '';
+    statusMessage.textContent = '1. Requesting Permit Signature';
+    mintTokenBtn.disabled = true;
 
-            try {
-                // *** PERBAIKAN WAKTU VALIDITAS ***
-                const currentTimestamp = Math.floor(Date.now() / 1000);
-                const validBefore = currentTimestamp + (60 * 15); // Diperpanjang menjadi 15 menit
-                const validAfter = 0; // Valid SEGERA (0 adalah Unix Epoch)
+    try {
+        const currentTimestamp = Math.floor(Date.now() / 1000);
+        const validBefore = currentTimestamp + (60 * 15); // 15 menit
+        const validAfter = 0; // Valid segera
 
                 // *** PERBAIKAN NONCE ***
                 // Menggunakan kombinasi waktu, alamat, dan angka acak untuk nonce yang lebih unik
                 const nonce = ethers.utils.solidityKeccak256(
-                    ["uint256", "address", "uint256"], 
-                    [Date.now(), userAddress, Math.floor(Math.random() * 1000000)]
-                );
+            ["uint256", "address", "uint256"], 
+            [Date.now(), userAddress, Math.floor(Math.random() * 1000000)]
+        );
 
                 // EIP-712 Domain Data
                 const domain = {
@@ -227,31 +226,32 @@
                 
                 // Message Data
                 const message = {
-                    from: userAddress,
-                    to: CONTRACT_SALE_MANAGER_ADDRESS,
-                    value: USDC_PRICE_TX,
-                    validAfter: validAfter, // Menggunakan 0
-                    validBefore: validBefore,
-                    nonce: nonce,
-                };
+            from: userAddress,
+            to: CONTRACT_SALE_MANAGER_ADDRESS,
+            value: USDC_PRICE_TX,
+            validAfter: validAfter,
+            validBefore: validBefore,
+            nonce: nonce,
+        };
 
-                // Minta pengguna menandatangani pesan
-                const signature = await signer._signTypedData(domain, types, message);
-                const signatureParts = ethers.utils.splitSignature(signature);
+        const signature = await signer._signTypedData(domain, types, message);
+        const signatureParts = ethers.utils.splitSignature(signature);
 
-                statusMessage.textContent = '2. Signature obtained. Sending Mint transaction (1 Gas Fee)...';
+        statusMessage.textContent = '2. Signature obtained. Sending Mint transaction';
 
-                // Kirim TRANSAKSI TUNGGAL ke Sale Manager
-                const saleManagerContract = new ethers.Contract(CONTRACT_SALE_MANAGER_ADDRESS, saleManagerABI, signer);
+        // PENGIRIMAN TRANSAKSI (Gunakan opsi gas yang lebih toleran jika perlu)
+        const saleManagerContract = new ethers.Contract(CONTRACT_SALE_MANAGER_ADDRESS, saleManagerABI, signer);
 
-                const tx = await saleManagerContract.buyTokenWithPermit(
-                    message.validAfter,
-                    message.validBefore,
-                    message.nonce,
-                    signatureParts.v,
-                    signatureParts.r,
-                    signatureParts.s
-                );
+        const tx = await saleManagerContract.buyTokenWithPermit(
+            message.validAfter,
+            message.validBefore,
+            message.nonce,
+            signatureParts.v,
+            signatureParts.r,
+            signatureParts.s,
+            // Opsional: Menetapkan gas limit secara manual jika Ethers.js terus gagal
+            // { gasLimit: 500000 } 
+        );
 
                 statusMessage.textContent = `3. Waiting for confirmation... Tx Hash: ${tx.hash.substring(0, 10)}...`;
                 await tx.wait();
