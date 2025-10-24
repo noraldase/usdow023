@@ -28,8 +28,7 @@
             margin-bottom: 10px;
         }
         ul { list-style-type: none; padding-left: 0; margin-left: 0; }
-        ul.endpoints li { margin-bottom: 5px; text-indent: -10px; }
-        ul.endpoints li::before { content: "• "; color: #007bff; font-weight: bold; }
+        ul.tokenomics li { margin-bottom: 5px; } /* Menambahkan class untuk styling */
         
         a { color: #007bff; text-decoration: none; }
         
@@ -46,6 +45,7 @@
             cursor: pointer;
             border-radius: 5px;
             transition: background-color 0.3s;
+            font-family: monospace; /* Menyamakan font tombol */
         }
         #connectWalletBtn { background-color: #ff6600; color: white; }
         #approveBtn { background-color: #007bff; color: white; }
@@ -92,6 +92,20 @@
             <li>Utility: None - pure meme token</li>
             <li>Refunds: No refunds</li>
             <li>Liquidity: Only provided on mint out</li>
+        </ul>
+
+        <h2>X402 Payment Data (Info)</h2>
+        <p>
+            Struktur data ini mendefinisikan detail pembayaran untuk 
+            integrasi dengan standar X402.
+        </p>
+        <ul class="tokenomics">
+            <li><strong>Scheme:</strong> "exact"</li>
+            <li><strong>Network:</strong> "base"</li>
+            <li><strong>Description:</strong> "Mint 1000 $US402 Tokens"</li>
+            <li><strong>Asset (USDC):</strong> "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"</li>
+            <li><strong>Pay To (Sale Contract):</strong> "0xa07cb30bdfd6c55cfbd3ed5949219190a60fbadc"</li>
+            <li><strong>Amount Required (Price):</strong> "1000000" (1 USDC, 6 desimal)</li>
         </ul>
 
         <h2>Social</h2>
@@ -247,13 +261,19 @@
 
                 statusMessage.innerHTML = `✅ **Mint Success!** 1000 $US402 sent! <br>Tx: <a href="https://basescan.org/tx/${tx.hash}" target="_blank">View on Basescan</a>`;
                 
-                // Reset status tombol untuk mint berikutnya
+                // Reset status tombol untuk mint berikutnya (jika allowance masih cukup)
+                // Cek ulang allowance untuk multi-mint
                 await checkAllowance(); 
+                
+                // Jika ingin hanya 1x mint per approve, nonaktifkan keduanya
+                // approveBtn.disabled = false;
+                // mintBtn.disabled = true;
 
             } catch (error) {
-                mintBtn.disabled = false; // Aktifkan lagi jika gagal
+                // Jika gagal, aktifkan kembali tombol mint agar bisa dicoba lagi
+                mintBtn.disabled = false; 
                 mintBtn.style.backgroundColor = '#28a745';
-                errorMessage.textContent = 'Mint Failed. Check console (F12) for details.';
+                errorMessage.textContent = 'Mint Failed. (Did you approve enough USDC?)';
                 console.error(error);
             }
         }
