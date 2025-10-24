@@ -5,41 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>$US402 Token Launch</title>
     <style>
-        body {
-            font-family: monospace, Courier New;
-            margin: 40px;
-            color: #333;
-        }
-        .container {
-            max-width: 800px;
-            margin: auto;
-            padding: 0;
-        }
-        h1 {
-            color: #ff6600; 
-            font-size: 2.2em;
-            padding-bottom: 5px;
-            margin-bottom: 15px;
-        }
-        h2 {
-            color: #333;
-            font-size: 1.2em;
-            margin-top: 25px;
-            margin-bottom: 10px;
-        }
+        body { font-family: monospace, Courier New; margin: 40px; color: #333; }
+        .container { max-width: 800px; margin: auto; padding: 0; }
+        h1 { color: #ff6600; font-size: 2.2em; padding-bottom: 5px; margin-bottom: 15px; }
+        h2 { color: #333; font-size: 1.2em; margin-top: 25px; margin-bottom: 10px; }
         ul { list-style-type: none; padding-left: 0; margin-left: 0; }
-        ul.tokenomics li { margin-bottom: 5px; } 
-        
         a { color: #007bff; text-decoration: none; }
-        #connectWalletBtn, #mintTokenBtn {
-            padding: 10px 20px;
-            font-size: 16px;
-            border: none;
-            cursor: pointer;
-            border-radius: 5px;
-            transition: background-color 0.3s;
-            font-family: monospace;
-        }
+        #connectWalletBtn, #mintTokenBtn { padding: 10px 20px; font-size: 16px; border: none; cursor: pointer; border-radius: 5px; transition: background-color 0.3s; font-family: monospace; }
         #connectWalletBtn { background-color: #ff6600; color: white; }
         #mintTokenBtn { background-color: #007bff; color: white; }
         #mintTokenBtn:disabled { background-color: #ccc; cursor: not-allowed; }
@@ -50,51 +22,32 @@
 <body>
     <div class="container">
         <h1>$US402</h1>
-        <p>The inaugural native web payment framework designed to reward X402 adoption with yield tokens. X402: what is it?</p>
-        <h2>Domain</h2>
-        <p>us-ai.fun</p>
-        <h2>Mint Token</h2>
         <p>Price: 1000 $US402 per 1 USDC. **1x Sign-In** for efficient transaction.</p>
         
         <button id="connectWalletBtn">Connect Wallet</button>
-        <button id="mintTokenBtn" style="display: none;" disabled>Mint 1000 $US402$ (1 USDC)</button>
+        <button id="mintTokenBtn" style="display: none;" disabled>Mint 1000 $US402 (1 USDC)</button>
 
         <div id="statusMessage" style="margin-top: 15px;"></div>
         <div id="errorMessage" style="margin-top: 5px;"></div>
 
-        <h2>Tokenomics</h2>
-        <ul class="tokenomics">
-            <li>Mint Amount: 1000 $US402 per transaction</li>
-            <li>Price: 1 USDC</li>
-            <li>Cap: 100K $USDC total</li>
-            <li>LP: 100% of proceeds go into LP</li>
-            <li>Team Supply: No team supply</li>
-            <li>Utility: None - pure meme token</li>
-            <li>Refunds: No refunds</li>
-            <li>Liquidity: Only provided on mint out</li>
-        </ul>
-
-        <h2>Social</h2>
-        <p>Follow <a href="https://x.com/us402fun">@us402fun</a> on X</p>
-        <div class="warning">
-            ⚠️ Warning: Use at your own risk. NO financial advice.
         </div>
-    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 
     <script>
         // *******************************************************************
-        // !!! GANTI ALAMAT DI BAWAH INI !!!
-        // *******************************************************************
-        // Masukkan alamat 'TokenSalePermit.sol' BARU Anda (dari Bagian 3, Langkah B)
-        const CONTRACT_SALE_MANAGER_ADDRESS = "0x171f7ea90759F604deeE078a6ba6e0bA57997484"; 
+        // SCRIPT FRONTEND UNTUK ALUR GASLESS (1-SIGN)
         // *******************************************************************
 
-        // Base Network Configuration
+        // GANTI INI DENGAN ALAMAT IP PUBLIK VPS ANDA
+        const RELAYER_URL = "54.83.109.188:3000/mint"; 
+
+        // Ganti dengan alamat 'TokenSalePermit' BARU Anda (dari Bagian 3)
+        const CONTRACT_SALE_MANAGER_ADDRESS = "0xb817A9877B1dfACD4Afc82Ce07038f80867f2a4E";
+        
         const USDC_CONTRACT_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; 
         const CHAIN_ID = 8453; // Base Mainnet
-        const USDC_PRICE_TX = '1000000'; // 1 USDC (6 desimal)
+        const USDC_PRICE_TX = '1000000'; // 1 USDC
 
         const connectWalletBtn = document.getElementById('connectWalletBtn');
         const mintTokenBtn = document.getElementById('mintTokenBtn');
@@ -105,20 +58,14 @@
         let provider;
         let userAddress;
 
-        // ABI ini sudah BENAR untuk kontrak TokenSalePermit.sol
-        const saleManagerABI = [
-            "function buyTokenWithPermit(uint256 validAfter, uint256 validBefore, bytes32 nonce, uint8 v, bytes32 r, bytes32 s)"
-        ];
-
         // --- WALLET CONNECTION ---
         async function connectWallet() {
             errorMessage.textContent = '';
             statusMessage.textContent = 'Connecting...';
             if (typeof window.ethereum === 'undefined') {
-                errorMessage.textContent = "Metamask not detected. Please install Metamask.";
+                errorMessage.textContent = "Metamask not detected.";
                 return;
             }
-
             try {
                 await window.ethereum.request({ method: 'eth_requestAccounts' });
                 provider = new ethers.providers.Web3Provider(window.ethereum);
@@ -127,103 +74,91 @@
                 
                 const { chainId } = await provider.getNetwork();
                 if (chainId !== CHAIN_ID) {
-                    errorMessage.textContent = `Please switch to the Base Mainnet (${CHAIN_ID}).`;
+                    errorMessage.textContent = `Please switch to the Base Mainnet.`;
                     return;
                 }
-
                 connectWalletBtn.style.display = 'none';
                 mintTokenBtn.style.display = 'block';
                 mintTokenBtn.disabled = false;
-                statusMessage.textContent = `Wallet Connected: ${userAddress.substring(0, 6)}...${userAddress.substring(38)}`;
-
+                statusMessage.textContent = `Wallet Connected: ${userAddress.substring(0, 6)}...`;
             } catch (error) {
-                errorMessage.textContent = `Connection aborted: ${error.message}`;
+                errorMessage.textContent = `Connection aborted.`;
             }
         }
 
-        // --- MINT FUNCTION (PERMIT LOGIC) ---
+        // --- MINT FUNCTION (GASLESS) ---
         async function mintToken() {
             errorMessage.textContent = '';
             statusMessage.textContent = '1. Requesting Permit Signature (Gas-Free)...';
             mintTokenBtn.disabled = true;
 
             try {
+                // --- 1. BUAT TANDA TANGAN (SAMA SEPERTI SEBELUMNYA) ---
                 const currentTimestamp = Math.floor(Date.now() / 1000);
                 const validBefore = currentTimestamp + (60 * 15); // 15 menit
-                const validAfter = 0; // Valid segera
-
-                // Nonce acak untuk mencegah replay
+                const validAfter = 0; 
                 const nonce = ethers.utils.solidityKeccak256(["uint256", "uint256"], [userAddress, Date.now()]);
 
-                // EIP-712 Domain Data (Persis seperti yang Anda temukan)
                 const domain = {
-                    name: 'USD Coin',
-                    version: '2',
-                    chainId: CHAIN_ID, 
-                    verifyingContract: USDC_CONTRACT_ADDRESS,
+                    name: 'USD Coin', version: '2',
+                    chainId: CHAIN_ID, verifyingContract: USDC_CONTRACT_ADDRESS,
                 };
-
-                // Tipe data (Persis seperti yang Anda temukan)
                 const types = {
                     TransferWithAuthorization: [
-                        { name: 'from', type: 'address' },
-                        { name: 'to', type: 'address' },
-                        { name: 'value', type: 'uint256' },
-                        { name: 'validAfter', type: 'uint256' },
-                        { name: 'validBefore', type: 'uint256' },
-                        { name: 'nonce', type: 'bytes32' },
+                        { name: 'from', type: 'address' }, { name: 'to', type: 'address' },
+                        { name: 'value', type: 'uint256' }, { name: 'validAfter', type: 'uint256' },
+                        { name: 'validBefore', type: 'uint256' }, { name: 'nonce', type: 'bytes32' },
                     ],
                 };
-                
-                // Pesan (Message) yang akan ditandatangani
                 const message = {
                     from: userAddress,
-                    to: CONTRACT_SALE_MANAGER_ADDRESS, // Kontrak BARU Anda
+                    to: CONTRACT_SALE_MANAGER_ADDRESS, 
                     value: USDC_PRICE_TX,
-                    validAfter: validAfter,
-                    validBefore: validBefore,
-                    nonce: nonce,
+                    validAfter: validAfter, validBefore: validBefore, nonce: nonce,
                 };
 
-                // Lakukan Tanda Tangan (Pop-up Metamask 1)
+                // --- 2. PENGGUNA TANDA TANGAN (POP-UP 1 - GRATIS) ---
                 const signature = await signer._signTypedData(domain, types, message);
                 const signatureParts = ethers.utils.splitSignature(signature);
 
-                statusMessage.textContent = '2. Signature obtained. Sending Mint transaction (1 Gas Fee)...';
+                statusMessage.textContent = '2. Signature obtained. Sending to server... (Gasless)';
 
-                // Kirim Transaksi (Pop-up Metamask 2 - Konfirmasi Gas)
-                const saleManagerContract = new ethers.Contract(CONTRACT_SALE_MANAGER_ADDRESS, saleManagerABI, signer);
+                // --- 3. KIRIM TANDA TANGAN KE SERVER (VPS) ANDA ---
+                // TIDAK ADA POP-UP 2 UNTUK PENGGUNA
+                const response = await fetch(RELAYER_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        buyerAddress: userAddress, // Kirim alamat pembeli
+                        validAfter: message.validAfter,
+                        validBefore: message.validBefore,
+                        nonce: message.nonce,
+                        v: signatureParts.v,
+                        r: signatureParts.r,
+                        s: signatureParts.s
+                    })
+                });
 
-                const tx = await saleManagerContract.buyTokenWithPermit(
-                    message.validAfter,
-                    message.validBefore,
-                    message.nonce,
-                    signatureParts.v,
-                    signatureParts.r,
-                    signatureParts.s,
-                    { gasLimit: 500000 } 
-                );
+                const result = await response.json();
 
-                statusMessage.textContent = `3. Waiting for confirmation... Tx Hash: ${tx.hash.substring(0, 10)}...`;
-                await tx.wait();
-
-                statusMessage.innerHTML = `✅ **Mint Success!** 1000 $US402$ sent! <br>Tx: <a href="https://basescan.org/tx/${tx.hash}" target="_blank">View on Basescan</a>`;
-
+                // --- 4. TAMPILKAN HASIL DARI SERVER ---
+                if (result.success) {
+                    statusMessage.innerHTML = `✅ **Mint Success!** 1000 $US402$ sent! <br>Tx: <a href="https://basescan.org/tx/${result.txHash}" target="_blank">View on Basescan</a>`;
+                } else {
+                    errorMessage.textContent = `Mint Failed: ${result.error}`;
+                }
+                
             } catch (error) {
                 if (error.code === 4001) { 
                     errorMessage.textContent = 'Transaction signature denied by the user.';
-                } else if (error.message.includes("UNPREDICTABLE_GAS_LIMIT")) {
-                    errorMessage.textContent = 'Failed: The permit signature is likely invalid (expired or used). Please refresh and try again immediately.';
                 } else {
-                    errorMessage.textContent = 'Transaction Failed. Check console (F12) for technical details.';
+                    errorMessage.textContent = 'Signature Failed. Check console (F12).';
                 }
-                console.error("Mint transaction error:", error);
+                console.error("Signature error:", error);
             } finally {
                 mintTokenBtn.disabled = false;
             }
         }
-
-        // --- EVENT LISTENERS ---
         connectWalletBtn.addEventListener('click', connectWallet);
         mintTokenBtn.addEventListener('click', mintToken);
     </script>
