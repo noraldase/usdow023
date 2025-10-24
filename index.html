@@ -28,14 +28,13 @@
             margin-bottom: 10px;
         }
         ul { list-style-type: none; padding-left: 0; margin-left: 0; }
-        ul.tokenomics li { margin-bottom: 5px; } /* Menambahkan class untuk styling */
+        ul.tokenomics li { margin-bottom: 5px; } 
         
         a { color: #007bff; text-decoration: none; }
         
-        /* Tata letak tombol */
         .button-container {
             display: flex;
-            gap: 10px; /* Jarak antar tombol */
+            gap: 10px; 
         }
         
         #connectWalletBtn, #approveBtn, #mintBtn {
@@ -45,13 +44,12 @@
             cursor: pointer;
             border-radius: 5px;
             transition: background-color 0.3s;
-            font-family: monospace; /* Menyamakan font tombol */
+            font-family: monospace; 
         }
         #connectWalletBtn { background-color: #ff6600; color: white; }
         #approveBtn { background-color: #007bff; color: white; }
-        #mintBtn { background-color: #28a745; color: white; } /* Warna hijau untuk mint */
+        #mintBtn { background-color: #28a745; color: white; } 
 
-        /* Style untuk tombol disabled */
         #approveBtn:disabled, #mintBtn:disabled {
             background-color: #ccc;
             cursor: not-allowed;
@@ -120,36 +118,28 @@
 
     <script>
         // *******************************************************************
-        // KODE JAVASCRIPT DIPERBAIKI (ALUR APPROVE + BUY)
+        // SCRIPT DIPERBAIKI UNTUK ERROR 'allowance.lt'
         // *******************************************************************
         
-        // Alamat Kontrak
         const CONTRACT_SALE_ADDRESS = "0xa07cb30bdfd6c55cfbd3ed5949219190a60fbadc";
         const USDC_CONTRACT_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; 
-        
-        // Konfigurasi
-        const CHAIN_ID = 8453; // Base Mainnet
-        const USDC_PRICE_TX = '1000000'; // 1 USDC (6 desimal)
+        const CHAIN_ID = 8453; 
+        const USDC_PRICE_TX = '1000000'; 
 
-        // Minimal ABI untuk Sale Contract (fungsi buyTokens)
         const saleABI = [
             "function buyTokens(uint256 _usdcAmountToSpend)"
         ];
-
-        // Minimal ABI untuk USDC (fungsi approve dan allowance)
         const usdcABI = [
             "function approve(address spender, uint256 amount)",
             "function allowance(address owner, address spender)"
         ];
 
-        // Elemen Tombol
         const connectWalletBtn = document.getElementById('connectWalletBtn');
         const approveBtn = document.getElementById('approveBtn');
         const mintBtn = document.getElementById('mintBtn');
         const statusMessage = document.getElementById('statusMessage');
         const errorMessage = document.getElementById('errorMessage');
 
-        // Variabel Status
         let signer;
         let provider;
         let userAddress;
@@ -177,17 +167,14 @@
                     return;
                 }
 
-                // Inisialisasi kontrak setelah signer didapat
                 saleContract = new ethers.Contract(CONTRACT_SALE_ADDRESS, saleABI, signer);
                 usdcContract = new ethers.Contract(USDC_CONTRACT_ADDRESS, usdcABI, signer);
 
-                // Update UI
                 connectWalletBtn.style.display = 'none';
                 approveBtn.style.display = 'block';
                 mintBtn.style.display = 'block';
                 statusMessage.textContent = `Wallet Connected: ${userAddress.substring(0, 6)}...`;
 
-                // Cek status allowance pengguna
                 await checkAllowance();
 
             } catch (error) {
@@ -195,30 +182,45 @@
             }
         }
 
-        // --- 2. CEK ALLOWANCE PENGGUNA ---
+        // --- 2. CEK ALLOWANCE PENGGUNA (DENGAN PERBAIKAN) ---
         async function checkAllowance() {
             try {
                 statusMessage.textContent = 'Checking USDC allowance...';
+                
+                // Panggil kontrak untuk data allowance
                 const allowance = await usdcContract.allowance(userAddress, CONTRACT_SALE_ADDRESS);
                 
-                if (allowance.lt(ethers.BigNumber.from(USDC_PRICE_TX))) {
-                    // Jika allowance kurang, aktifkan tombol Approve
-                    approveBtn.disabled = false;
-                    approveBtn.textContent = '1. Approve 1 USDC';
-                    mintBtn.disabled = true;
-                    mintBtn.style.backgroundColor = '#ccc'; // Warna abu-abu
-                    statusMessage.textContent = 'Please approve 1 USDC to continue.';
+                // --- PERBAIKAN ---
+                // Periksa apakah 'allowance' adalah objek BigNumber yang valid
+                if (allowance && typeof allowance.lt === 'function') {
+                
+                    if (allowance.lt(ethers.BigNumber.from(USDC_PRICE_TX))) {
+                        // Jika allowance kurang, aktifkan tombol Approve
+                        approveBtn.disabled = false;
+                        approveBtn.textContent = '1. Approve 1 USDC';
+                        mintBtn.disabled = true;
+                        mintBtn.style.backgroundColor = '#ccc'; 
+                        statusMessage.textContent = 'Please approve 1 USDC to continue.';
+                    } else {
+                        // Jika sudah diapprove, nonaktifkan tombol Approve
+                        approveBtn.disabled = true;
+                        approveBtn.textContent = 'USDC Approved';
+                        mintBtn.disabled = false;
+                        mintBtn.style.backgroundColor = '#28a745'; 
+                        statusMessage.textContent = 'Ready to mint.';
+                    }
+                    
                 } else {
-                    // Jika sudah diapprove, nonaktifkan tombol Approve
-                    approveBtn.disabled = true;
-                    approveBtn.textContent = 'USDC Approved';
-                    mintBtn.disabled = false;
-                    mintBtn.style.backgroundColor = '#28a745'; // Warna hijau
-                    statusMessage.textContent = 'Ready to mint.';
+                    // Jika 'allowance' bukan BigNumber, tampilkan error RPC
+                    console.error("Allowance value is not a BigNumber:", allowance);
+                    errorMessage.textContent = 'Failed to read allowance. Is your RPC connection stable? Please refresh.';
                 }
+                // --- AKHIR PERBAIKAN ---
+
             } catch (error) {
-                errorMessage.textContent = 'Failed to check allowance.';
-                console.error(error);
+                // Tangkap error jika panggilan 'allowance' gagal total
+                errorMessage.textContent = 'Failed to check allowance. Check console (F12).';
+                console.error("Error in checkAllowance:", error);
             }
         }
 
@@ -234,10 +236,10 @@
                 await tx.wait();
                 
                 statusMessage.textContent = '✅ Approved! You can now mint.';
-                await checkAllowance(); // Update status tombol
+                await checkAllowance(); 
 
             } catch (error) {
-                approveBtn.disabled = false; // Aktifkan lagi jika gagal
+                approveBtn.disabled = false; 
                 errorMessage.textContent = 'Approve transaction failed or was rejected.';
                 console.error(error);
             }
@@ -251,9 +253,8 @@
             mintBtn.style.backgroundColor = '#ccc';
 
             try {
-                // Panggil fungsi buyTokens di kontrak Anda
                 const tx = await saleContract.buyTokens(USDC_PRICE_TX, {
-                    gasLimit: 300000 // Gas limit manual untuk mencegah error estimasi
+                    gasLimit: 300000 
                 });
                 
                 statusMessage.textContent = 'Minting... Tx Hash: ' + tx.hash.substring(0, 10) + '...';
@@ -261,16 +262,9 @@
 
                 statusMessage.innerHTML = `✅ **Mint Success!** 1000 $US402 sent! <br>Tx: <a href="https://basescan.org/tx/${tx.hash}" target="_blank">View on Basescan</a>`;
                 
-                // Reset status tombol untuk mint berikutnya (jika allowance masih cukup)
-                // Cek ulang allowance untuk multi-mint
                 await checkAllowance(); 
-                
-                // Jika ingin hanya 1x mint per approve, nonaktifkan keduanya
-                // approveBtn.disabled = false;
-                // mintBtn.disabled = true;
 
             } catch (error) {
-                // Jika gagal, aktifkan kembali tombol mint agar bisa dicoba lagi
                 mintBtn.disabled = false; 
                 mintBtn.style.backgroundColor = '#28a745';
                 errorMessage.textContent = 'Mint Failed. (Did you approve enough USDC?)';
