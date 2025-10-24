@@ -1,4 +1,134 @@
-<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>$US402 Token Launch</title>
+    <style>
+        body {
+            font-family: monospace, Courier New;
+            margin: 40px;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: auto;
+            padding: 0;
+        }
+        h1 {
+            color: #ff6600; 
+            font-size: 2.2em;
+            padding-bottom: 5px;
+            margin-bottom: 15px;
+        }
+        h2 {
+            color: #333;
+            font-size: 1.2em;
+            margin-top: 25px;
+            margin-bottom: 10px;
+        }
+        p {
+            margin-top: 5px;
+        }
+        ul {
+            list-style-type: none; 
+            padding-left: 0;
+            margin-left: 0;
+        }
+        ul.endpoints li {
+            margin-bottom: 5px;
+            text-indent: -10px; 
+        }
+        ul.endpoints li::before {
+            content: "• "; 
+            color: #007bff;
+            font-weight: bold;
+        }
+        ul.tokenomics li {
+            margin-bottom: 5px;
+            line-height: 1.4;
+        }
+        a {
+            color: #007bff;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .warning {
+            margin-top: 30px;
+            padding: 10px 0;
+            color: #cc0000;
+            font-weight: bold;
+        }
+        /* Button Styles */
+        #connectWalletBtn, #mintTokenBtn {
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        #connectWalletBtn {
+            background-color: #ff6600;
+            color: white;
+        }
+        #mintTokenBtn {
+            background-color: #007bff;
+            color: white;
+        }
+        #mintTokenBtn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        #errorMessage {
+            color: red;
+            font-weight: bold;
+        }
+        #statusMessage {
+            color: green;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>$US402</h1>
+
+        <p>The inaugural native web payment framework designed to reward X402 adoption with yield tokens. X402: what is it?</p>
+
+        <h2>Domain</h2>
+        <p>us-ai.fun</p>
+
+        <h2>Mint Token</h2>
+        <p>Price: 1000 $US402$ per 1 USDC. Efficient single transaction.</p>
+        
+        <button id="connectWalletBtn">Connect Wallet</button>
+        <button id="mintTokenBtn" style="display: none;" disabled>Mint 1000 $US402$ (1 USDC)</button>
+
+        <div id="statusMessage" style="margin-top: 15px;"></div>
+        <div id="errorMessage" style="margin-top: 5px;"></div>
+        <h2>Tokenomics</h2>
+        <ul class="tokenomics">
+            <li>Mint Amount: 1000 $US402 per transaction</li>
+            <li>Price: 1 USDC</li>
+            <li>Cap: 100K $USDC total</li>
+            <li>LP: 100% of proceeds go into LP</li>
+            <li>Team Supply: No team supply</li>
+            <li>Utility: None - pure meme token</li>
+            <li>Refunds: No refunds</li>
+            <li>Liquidity: Only provided on mint out</li>
+        </ul>
+
+        <h2>Social</h2>
+        <p>Follow <a href="https://x.com/us402fun">@us402fun</a> on X</p>
+
+        <div class="warning">
+            ⚠️ Warning: Use at your own risk. NO financial advice.
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 
     <script>
         // *******************************************************************
