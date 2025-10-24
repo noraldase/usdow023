@@ -32,7 +32,14 @@
         ul.endpoints li::before { content: "• "; color: #007bff; font-weight: bold; }
         
         a { color: #007bff; text-decoration: none; }
-        #connectWalletBtn, #mintTokenBtn {
+        
+        /* Tata letak tombol */
+        .button-container {
+            display: flex;
+            gap: 10px; /* Jarak antar tombol */
+        }
+        
+        #connectWalletBtn, #approveBtn, #mintBtn {
             padding: 10px 20px;
             font-size: 16px;
             border: none;
@@ -41,8 +48,15 @@
             transition: background-color 0.3s;
         }
         #connectWalletBtn { background-color: #ff6600; color: white; }
-        #mintTokenBtn { background-color: #007bff; color: white; }
-        #mintTokenBtn:disabled { background-color: #ccc; cursor: not-allowed; }
+        #approveBtn { background-color: #007bff; color: white; }
+        #mintBtn { background-color: #28a745; color: white; } /* Warna hijau untuk mint */
+
+        /* Style untuk tombol disabled */
+        #approveBtn:disabled, #mintBtn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        
         #errorMessage { color: red; font-weight: bold; }
         #statusMessage { color: green; }
     </style>
@@ -57,10 +71,13 @@
         <p>us-ai.fun</p>
 
         <h2>Mint Token</h2>
-        <p>Price: 1000 $US402$ per 1 USDC. **1x Sign-In** for efficient transaction.</p>
+        <p>Price: 1000 $US402 per 1 USDC. (2-step process: Approve, then Mint)</p>
         
-        <button id="connectWalletBtn">Connect Wallet</button>
-        <button id="mintTokenBtn" style="display: none;" disabled>Mint 1000 $US402$ (1 USDC)</button>
+        <div class="button-container">
+            <button id="connectWalletBtn">Connect Wallet</button>
+            <button id="approveBtn" style="display: none;">1. Approve 1 USDC</button>
+            <button id="mintBtn" style="display: none;" disabled>2. Mint 1000 $US402</button>
+        </div>
 
         <div id="statusMessage" style="margin-top: 15px;"></div>
         <div id="errorMessage" style="margin-top: 5px;"></div>
@@ -89,31 +106,43 @@
 
     <script>
         // *******************************************************************
-        // !!! KONTRAK FINAL BASE MAINNET !!!
+        // KODE JAVASCRIPT DIPERBAIKI (ALUR APPROVE + BUY)
         // *******************************************************************
-        // Menggunakan Checksummed Address
-        const CONTRACT_SALE_MANAGER_ADDRESS = "0xa07cb30bdfd6c55cfbd3ed5949219190a60fbadc"; 
         
-        // Base Network Configuration
+        // Alamat Kontrak
+        const CONTRACT_SALE_ADDRESS = "0xa07cb30bdfd6c55cfbd3ed5949219190a60fbadc";
         const USDC_CONTRACT_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; 
+        
+        // Konfigurasi
         const CHAIN_ID = 8453; // Base Mainnet
         const USDC_PRICE_TX = '1000000'; // 1 USDC (6 desimal)
 
+        // Minimal ABI untuk Sale Contract (fungsi buyTokens)
+        const saleABI = [
+            "function buyTokens(uint256 _usdcAmountToSpend)"
+        ];
+
+        // Minimal ABI untuk USDC (fungsi approve dan allowance)
+        const usdcABI = [
+            "function approve(address spender, uint256 amount)",
+            "function allowance(address owner, address spender)"
+        ];
+
+        // Elemen Tombol
         const connectWalletBtn = document.getElementById('connectWalletBtn');
-        const mintTokenBtn = document.getElementById('mintTokenBtn');
+        const approveBtn = document.getElementById('approveBtn');
+        const mintBtn = document.getElementById('mintBtn');
         const statusMessage = document.getElementById('statusMessage');
         const errorMessage = document.getElementById('errorMessage');
 
+        // Variabel Status
         let signer;
         let provider;
         let userAddress;
+        let saleContract;
+        let usdcContract;
 
-        // Minimal ABI untuk fungsi buyTokenWithPermit
-        const saleManagerABI = [
-            "function buyTokenWithPermit(uint256 validAfter, uint256 validBefore, bytes32 nonce, uint8 v, bytes32 r, bytes32 s)"
-        ];
-
-        // --- WALLET CONNECTION ---
+        // --- 1. CONNECT WALLET ---
         async function connectWallet() {
             errorMessage.textContent = '';
             statusMessage.textContent = 'Connecting...';
@@ -134,102 +163,106 @@
                     return;
                 }
 
+                // Inisialisasi kontrak setelah signer didapat
+                saleContract = new ethers.Contract(CONTRACT_SALE_ADDRESS, saleABI, signer);
+                usdcContract = new ethers.Contract(USDC_CONTRACT_ADDRESS, usdcABI, signer);
+
+                // Update UI
                 connectWalletBtn.style.display = 'none';
-                mintTokenBtn.style.display = 'block';
-                mintTokenBtn.disabled = false;
-                statusMessage.textContent = `Wallet Connected: ${userAddress.substring(0, 6)}...${userAddress.substring(38)}`;
+                approveBtn.style.display = 'block';
+                mintBtn.style.display = 'block';
+                statusMessage.textContent = `Wallet Connected: ${userAddress.substring(0, 6)}...`;
+
+                // Cek status allowance pengguna
+                await checkAllowance();
 
             } catch (error) {
                 errorMessage.textContent = `Connection aborted: ${error.message}`;
             }
         }
 
-        // --- MINT FUNCTION (PERMIT LOGIC) ---
-        async function mintToken() {
+        // --- 2. CEK ALLOWANCE PENGGUNA ---
+        async function checkAllowance() {
+            try {
+                statusMessage.textContent = 'Checking USDC allowance...';
+                const allowance = await usdcContract.allowance(userAddress, CONTRACT_SALE_ADDRESS);
+                
+                if (allowance.lt(ethers.BigNumber.from(USDC_PRICE_TX))) {
+                    // Jika allowance kurang, aktifkan tombol Approve
+                    approveBtn.disabled = false;
+                    approveBtn.textContent = '1. Approve 1 USDC';
+                    mintBtn.disabled = true;
+                    mintBtn.style.backgroundColor = '#ccc'; // Warna abu-abu
+                    statusMessage.textContent = 'Please approve 1 USDC to continue.';
+                } else {
+                    // Jika sudah diapprove, nonaktifkan tombol Approve
+                    approveBtn.disabled = true;
+                    approveBtn.textContent = 'USDC Approved';
+                    mintBtn.disabled = false;
+                    mintBtn.style.backgroundColor = '#28a745'; // Warna hijau
+                    statusMessage.textContent = 'Ready to mint.';
+                }
+            } catch (error) {
+                errorMessage.textContent = 'Failed to check allowance.';
+                console.error(error);
+            }
+        }
+
+        // --- 3. FUNGSI APPROVE USDC ---
+        async function approveUSDC() {
             errorMessage.textContent = '';
-            statusMessage.textContent = '1. Requesting Permit Signature (Gas-Free)...';
-            mintTokenBtn.disabled = true;
+            statusMessage.textContent = 'Waiting for approve signature...';
+            approveBtn.disabled = true;
 
             try {
-                const currentTimestamp = Math.floor(Date.now() / 1000);
-                const validBefore = currentTimestamp + (60 * 15); // 15 menit
-                const validAfter = 0; // Valid segera
-
-// Misal, gunakan hash dari waktu saat ini + string unik baru
-const nonce = ethers.utils.solidityKeccak256(["string", "uint256"], ["UNIQUE_ID_2025_09_28_NEW", Date.now()]);
-
-                // EIP-712 Domain Data
-                const domain = {
-                    name: 'USD Coin',
-                    version: '2',
-                    chainId: CHAIN_ID, 
-                    verifyingContract: USDC_CONTRACT_ADDRESS,
-                };
-
-                const types = {
-                    TransferWithAuthorization: [
-                        { name: 'from', type: 'address' },
-                        { name: 'to', type: 'address' },
-                        { name: 'value', type: 'uint256' },
-                        { name: 'validAfter', type: 'uint256' },
-                        { name: 'validBefore', type: 'uint256' },
-                        { name: 'nonce', type: 'bytes32' },
-                    ],
-                };
-                
-                const message = {
-                    from: userAddress,
-                    to: CONTRACT_SALE_MANAGER_ADDRESS,
-                    value: USDC_PRICE_TX,
-                    validAfter: validAfter,
-                    validBefore: validBefore,
-                    nonce: nonce,
-                };
-
-                // Lakukan Tanda Tangan (Pop-up Metamask 1)
-                const signature = await signer._signTypedData(domain, types, message);
-                const signatureParts = ethers.utils.splitSignature(signature);
-
-                statusMessage.textContent = '2. Signature obtained. Sending Mint transaction (1 Gas Fee)...';
-
-                // Kirim Transaksi (Pop-up Metamask 2 - Konfirmasi Gas)
-                const saleManagerContract = new ethers.Contract(CONTRACT_SALE_MANAGER_ADDRESS, saleManagerABI, signer);
-
-                const tx = await saleManagerContract.buyTokenWithPermit(
-                    message.validAfter,
-                    message.validBefore,
-                    message.nonce,
-                    signatureParts.v,
-                    signatureParts.r,
-                    signatureParts.s,
-                    // Gas Limit Manual untuk mengatasi UNPREDICTABLE_GAS_LIMIT
-                    { gasLimit: 500000 } 
-                );
-
-                statusMessage.textContent = `3. Waiting for confirmation... Tx Hash: ${tx.hash.substring(0, 10)}...`;
+                const tx = await usdcContract.approve(CONTRACT_SALE_ADDRESS, USDC_PRICE_TX);
+                statusMessage.textContent = 'Approving USDC... Tx Hash: ' + tx.hash.substring(0, 10) + '...';
                 await tx.wait();
-
-                statusMessage.innerHTML = `✅ **Mint Success!** 1000 $US402$ sent! <br>Tx: <a href="https://basescan.org/tx/${tx.hash}" target="_blank">View on Basescan</a>`;
+                
+                statusMessage.textContent = '✅ Approved! You can now mint.';
+                await checkAllowance(); // Update status tombol
 
             } catch (error) {
-                mintTokenBtn.disabled = false;
+                approveBtn.disabled = false; // Aktifkan lagi jika gagal
+                errorMessage.textContent = 'Approve transaction failed or was rejected.';
+                console.error(error);
+            }
+        }
+
+        // --- 4. FUNGSI MINT TOKEN ---
+        async function mintToken() {
+            errorMessage.textContent = '';
+            statusMessage.textContent = 'Waiting for mint signature...';
+            mintBtn.disabled = true;
+            mintBtn.style.backgroundColor = '#ccc';
+
+            try {
+                // Panggil fungsi buyTokens di kontrak Anda
+                const tx = await saleContract.buyTokens(USDC_PRICE_TX, {
+                    gasLimit: 300000 // Gas limit manual untuk mencegah error estimasi
+                });
                 
-                if (error.code === 4001) { 
-                    errorMessage.textContent = 'Transaction signature denied by the user.';
-                } else if (error.message.includes("UNPREDICTABLE_GAS_LIMIT")) {
-                    errorMessage.textContent = 'Failed: The permit signature is likely invalid (expired or used). Please refresh and try again immediately.';
-                } else {
-                    errorMessage.textContent = 'Transaction Failed. Check console (F12) for technical details.';
-                }
-                console.error("Mint transaction error:", error);
-            } finally {
-                mintTokenBtn.disabled = false;
+                statusMessage.textContent = 'Minting... Tx Hash: ' + tx.hash.substring(0, 10) + '...';
+                await tx.wait();
+
+                statusMessage.innerHTML = `✅ **Mint Success!** 1000 $US402 sent! <br>Tx: <a href="https://basescan.org/tx/${tx.hash}" target="_blank">View on Basescan</a>`;
+                
+                // Reset status tombol untuk mint berikutnya
+                await checkAllowance(); 
+
+            } catch (error) {
+                mintBtn.disabled = false; // Aktifkan lagi jika gagal
+                mintBtn.style.backgroundColor = '#28a745';
+                errorMessage.textContent = 'Mint Failed. Check console (F12) for details.';
+                console.error(error);
             }
         }
 
         // --- EVENT LISTENERS ---
         connectWalletBtn.addEventListener('click', connectWallet);
-        mintTokenBtn.addEventListener('click', mintToken);
+        approveBtn.addEventListener('click', approveUSDC);
+        mintBtn.addEventListener('click', mintToken);
+
     </script>
 </body>
 </html>
