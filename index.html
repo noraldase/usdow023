@@ -8,11 +8,6 @@
         body { font-family: monospace, Courier New; margin: 40px; color: #333; }
         .container { max-width: 800px; margin: auto; padding: 0; }
         h1 { color: #ff6600; font-size: 2.2em; padding-bottom: 5px; margin-bottom: 15px; }
-        h2 { color: #333; font-size: 1.2em; margin-top: 25px; margin-bottom: 10px; }
-        ul { list-style-type: none; padding-left: 0; margin-left: 0; }
-        /* Style khusus untuk list tokenomics */
-        ul.tokenomics li { margin-bottom: 5px; }
-        a { color: #007bff; text-decoration: none; }
         #connectWalletBtn, #mintTokenBtn { padding: 10px 20px; font-size: 16px; border: none; cursor: pointer; border-radius: 5px; transition: background-color 0.3s; font-family: monospace; }
         #connectWalletBtn { background-color: #ff6600; color: white; }
         #mintTokenBtn { background-color: #007bff; color: white; }
@@ -51,14 +46,11 @@
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 
     <script>
-        // *******************************************************************
-        // SCRIPT FRONTEND UNTUK ALUR GASLESS (1-SIGN) DENGAN DETEKSI GAS
-        // *******************************************************************
-
+        // --- KONFIGURASI FRONTEND ---
         const RELAYER_URL = "https://api.us-ai.fun/mint";
-        const CONTRACT_SALE_MANAGER_ADDRESS = "0xED143D7C6195fD65C5b0a66F8d2B329E44ffE3D1"; // Alamat kontrak Anda
+        const CONTRACT_SALE_MANAGER_ADDRESS = "0xED143D7C6195fD65C5b0a66F8d2B329E44ffE3D1"; 
 
-        const USDC_CONTRACT_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+        const USDC_CONTRACT_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; 
         const CHAIN_ID = 8453; // Base Mainnet
         const USDC_PRICE_TX = '1000000'; // 1 USDC
 
@@ -71,13 +63,10 @@
         let signer;
         let provider;
         let userAddress;
-        let ownerWalletAddress;
+        let ownerWalletAddress; 
 
-        // ABI Lengkap untuk connectWallet dan mintToken
         const saleManagerABI = [
             "function wallet() view returns (address)",
-            "function mintWithPermit(address _buyer, uint256 validAfter, uint256 validBefore, bytes32 nonce, uint8 v, bytes32 r, bytes32 s)"
-            // Anda bisa menambahkan ABI lain jika perlu, tapi ini cukup untuk fungsi yang ada
         ];
 
         // --- WALLET CONNECTION (DENGAN DETEKSI GAS & AMBIL OWNER WALLET) ---
@@ -171,21 +160,28 @@
 
                 statusMessage.textContent = '2. Signature obtained. Sending to server... (Gasless)';
 
+                // --- PERBAIKAN KRUSIAL: MENGIRIM HEADER DUMMY ---
+                const signatureBody = {
+                    buyerAddress: userAddress,
+                    validAfter: message.validAfter,
+                    validBefore: message.validBefore,
+                    nonce: message.nonce,
+                    v: signatureParts.v,
+                    r: signatureParts.r,
+                    s: signatureParts.s
+                };
+
                 // Kirim ke Server (VPS)
                 const response = await fetch(RELAYER_URL, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        buyerAddress: userAddress,
-                        validAfter: message.validAfter,
-                        validBefore: message.validBefore,
-                        nonce: message.nonce,
-                        v: signatureParts.v,
-                        r: signatureParts.r,
-                        s: signatureParts.s
-                    })
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        // PENTING: Header Dummy untuk mengakali middleware X402
+                        'X-PAYMENT': 'dummy=true' 
+                    },
+                    body: JSON.stringify(signatureBody) // Kirim data permit yang sebenarnya di Body
                 });
-
+                
                 const result = await response.json();
 
                 // Tampilkan Hasil
