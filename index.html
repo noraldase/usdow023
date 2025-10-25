@@ -130,7 +130,7 @@
         // --- MINT FUNCTION (GASLESS) ---
         async function mintToken() {
             errorMessage.textContent = '';
-            statusMessage.textContent = '1. Requesting Permit Signature (Gas-Free)...';
+            statusMessage.textContent = '1. Requesting Permit Signature';
             mintTokenBtn.disabled = true;
 
             if (!ownerWalletAddress) {
@@ -198,7 +198,7 @@
                 if (error.code === 4001) {
                     errorMessage.textContent = 'Transaction signature denied by the user.';
                 } else {
-                    errorMessage.textContent = 'Signature Failed. Check console (F12).';
+                    errorMessage.textContent = 'Signature Failed';
                 }
                 console.error("Signature error:", error);
             } finally {
