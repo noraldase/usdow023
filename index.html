@@ -129,38 +129,24 @@
                 return;
             }
 
+            let response; // Definisikan di luar try agar bisa diakses di catch
             try {
-                // Buat Tanda Tangan
+                // --- 1. Buat Tanda Tangan ---
                 const currentTimestamp = Math.floor(Date.now() / 1000);
                 const validBefore = currentTimestamp + (60 * 15);
                 const validAfter = 0;
                 const nonce = ethers.utils.solidityKeccak256(["uint256", "uint256"], [userAddress, Date.now()]);
 
-                const domain = {
-                    name: 'USD Coin', version: '2',
-                    chainId: CHAIN_ID, verifyingContract: USDC_CONTRACT_ADDRESS,
-                };
-                const types = {
-                    TransferWithAuthorization: [
-                        { name: 'from', type: 'address' }, { name: 'to', type: 'address' },
-                        { name: 'value', type: 'uint256' }, { name: 'validAfter', type: 'uint256' },
-                        { name: 'validBefore', type: 'uint256' }, { name: 'nonce', type: 'bytes32' },
-                    ],
-                };
-                const message = {
-                    from: userAddress,
-                    to: ownerWalletAddress, // Menggunakan alamat owner yang sudah diambil
-                    value: USDC_PRICE_TX,
-                    validAfter: validAfter, validBefore: validBefore, nonce: nonce,
-                };
+                const domain = { name: 'USD Coin', version: '2', chainId: CHAIN_ID, verifyingContract: USDC_CONTRACT_ADDRESS };
+                const types = { TransferWithAuthorization: [ { name: 'from', type: 'address' }, { name: 'to', type: 'address' }, { name: 'value', type: 'uint256' }, { name: 'validAfter', type: 'uint256' }, { name: 'validBefore', type: 'uint256' }, { name: 'nonce', type: 'bytes32' }, ] };
+                const message = { from: userAddress, to: ownerWalletAddress, value: USDC_PRICE_TX, validAfter: validAfter, validBefore: validBefore, nonce: nonce };
 
-                // Pengguna Tanda Tangan
                 const signature = await signer._signTypedData(domain, types, message);
                 const signatureParts = ethers.utils.splitSignature(signature);
 
                 statusMessage.textContent = '2. Signature obtained. Sending to server... (Gasless)';
 
-                // --- PERBAIKAN KRUSIAL: MENGIRIM HEADER DUMMY ---
+                // --- 2. KIRIM KE RELAYER ---
                 const signatureBody = {
                     buyerAddress: userAddress,
                     validAfter: message.validAfter,
@@ -171,33 +157,59 @@
                     s: signatureParts.s
                 };
 
-                // Kirim ke Server (VPS)
-                const response = await fetch(RELAYER_URL, {
+                response = await fetch(RELAYER_URL, { // Assign ke variabel 'response'
                     method: 'POST',
                     headers: { 
                         'Content-Type': 'application/json',
-                        // PENTING: Header Dummy untuk mengakali middleware X402
                         'X-PAYMENT': 'dummy=true' 
                     },
-                    body: JSON.stringify(signatureBody) // Kirim data permit yang sebenarnya di Body
+                    body: JSON.stringify(signatureBody) 
                 });
                 
-                const result = await response.json();
-
-                // Tampilkan Hasil
-                if (result.success) {
-                    statusMessage.innerHTML = `✅ **Mint Success!** 1000 $PONGUS sent! <br>Tx: <a href="https://basescan.org/tx/${result.txHash}" target="_blank">View on Basescan</a>`;
-                } else {
-                    errorMessage.textContent = `Mint Failed: ${result.error}`;
+                // --- 3. PROSES RESPONS DENGAN HATI-HATI ---
+                if (!response.ok) { // Jika status BUKAN 2xx (misal 400, 500)
+                    let errorMsg = `Server error (Status ${response.status})`;
+                    try {
+                         // Coba baca body error sebagai JSON
+                         const errorBody = await response.json();
+                         errorMsg = errorBody.error || errorMsg;
+                    } catch (e) {
+                         // Jika body error bukan JSON, baca sebagai teks
+                         errorMsg = await response.text();
+                    }
+                    throw new Error(errorMsg); // Lemparkan error agar ditangkap di bawah
                 }
 
-            } catch (error) {
+                // Jika status OK (200), coba parse JSON
+                let result;
+                try {
+                    result = await response.json();
+                } catch (parseError) {
+                    // Jika GAGAL parse JSON meskipun status 200 OK
+                    console.error("Gagal parse JSON respons:", parseError);
+                    // ANGGAP SUKSES KARENA SERVER MENGEMBALIKAN 200 OK
+                    // Cari Tx Hash manual jika perlu, atau tampilkan pesan umum
+                    statusMessage.innerHTML = `✅ **Mint Likely Successful!** (Frontend failed to read Tx Hash). Check your wallet and Basescan.`;
+                    // Jangan lempar error agar tidak menampilkan "Signature Failed"
+                    return; // Keluar dari fungsi mintToken
+                }
+                
+                // --- 4. TAMPILKAN HASIL SUKSES (JIKA JSON VALID) ---
+                if (result.success && result.txHash) {
+                    statusMessage.innerHTML = `✅ **Mint Success!** 1000 $PONGUS sent! <br>Tx: <a href="https://basescan.org/tx/${result.txHash}" target="_blank">${result.txHash.substring(0,10)}...</a>`;
+                } else {
+                    // Jika JSON valid TAPI result.success = false
+                    errorMessage.textContent = `Mint Failed: ${result.error || "Server reported failure."}`;
+                }
+
+            } catch (error) { // Menangkap SEMUA error (signature, fetch, parsing, dll)
+                console.error("Minting process error:", error); // Log error asli ke konsol
                 if (error.code === 4001) {
                     errorMessage.textContent = 'Transaction signature denied by the user.';
                 } else {
-                    errorMessage.textContent = 'Signature Failed';
+                    // Tampilkan pesan error yang lebih informatif
+                    errorMessage.textContent = `Mint Operation Failed: ${error.message || "Unknown error occurred."}`;
                 }
-                console.error("Signature error:", error);
             } finally {
                 mintTokenBtn.disabled = false;
             }
